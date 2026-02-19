@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReFynd Admin — Moderation</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0A0A0A;
+      --surface: #141414;
+      --surface-2: #1C1C1C;
+      --border: #2A2A2A;
+      --accent: #A3896B;
+      --accent-dim: rgba(163, 137, 107, 0.15);
+      --red: #FF3B30;
+      --red-dim: rgba(255, 59, 48, 0.12);
+      --green: #22C55E;
+      --green-dim: rgba(34, 197, 94, 0.12);
+      --yellow: #F59E0B;
+      --yellow-dim: rgba(245, 158, 11, 0.12);
+      --text: #E8E8E8;
+      --text-2: #888;
+      --text-3: #555;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .logo {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 6px;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+    .badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: var(--red-dim);
+      color: var(--red);
+      font-weight: 500;
+    }
+    .badge.resolved { background: var(--green-dim); color: var(--green); }
+    .badge.pending { background: var(--yellow-dim); color: var(--yellow); }
+
+    /* ── Auth ── */
+    #auth-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 24px;
+    }
+    #auth-screen h1 { font-size: 13px; letter-spacing: 6px; color: var(--accent); text-transform: uppercase; }
+    #auth-screen p { color: var(--text-2); font-size: 14px; }
+    #auth-screen input {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      width: 300px;
+      outline: none;
+    }
+    #auth-screen input:focus { border-color: var(--accent); }
+    #auth-screen button {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      padding: 12px 32px;
+      border-radius: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+    #auth-screen button:hover { opacity: 0.9; }
+    .auth-error { color: var(--red); font-size: 13px; }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 32px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .tab {
+      padding: 14px 24px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-3);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab:hover { color: var(--text-2); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-count {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      margin-left: 6px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: var(--surface-2);
+    }
+
+    /* ── Stats ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      padding: 24px 32px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .stat-label { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+    .stat-value { font-size: 28px; font-weight: 700; }
+    .stat-value.red { color: var(--red); }
+    .stat-value.green { color: var(--green); }
+    .stat-value.yellow { color: var(--yellow); }
+
+    /* ── Report List ── */
+    .content { padding: 0 32px 32px; }
+    .report-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 12px;
+      transition: border-color 0.2s;
+    }
+    .report-card:hover { border-color: var(--text-3); }
+    .report-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .report-meta { display: flex; flex-direction: column; gap: 4px; }
+    .report-type {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      width: fit-content;
+    }
+    .report-type.video { background: rgba(99, 102, 241, 0.15); color: #818CF8; }
+    .report-type.profile { background: rgba(236, 72, 153, 0.15); color: #F472B6; }
+    .report-reason {
+      font-size: 15px;
+      font-weight: 600;
+      text-transform: capitalize;
+      margin-top: 4px;
+    }
+    .report-id {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--text-3);
+    }
+    .report-time {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--text-3);
+    }
+
+    .report-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .report-field { }
+    .report-field-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px; }
+    .report-field-value { font-size: 13px; color: var(--text-2); }
+    .report-field-value a { color: var(--accent); text-decoration: none; }
+    .report-field-value a:hover { text-decoration: underline; }
+
+    .report-actions {
+      display: flex;
+      gap: 8px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .action-btn {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .action-btn:hover { border-color: var(--text-3); color: var(--text); }
+    .action-btn.danger { background: var(--red-dim); color: var(--red); border-color: rgba(255,59,48,0.3); }
+    .action-btn.danger:hover { background: var(--red); color: #fff; }
+    .action-btn.success { background: var(--green-dim); color: var(--green); border-color: rgba(34,197,94,0.3); }
+    .action-btn.success:hover { background: var(--green); color: #fff; }
+
+    .empty-state {
+      text-align: center;
+      padding: 80px 0;
+      color: var(--text-3);
+    }
+    .empty-state span { font-size: 48px; display: block; margin-bottom: 16px; }
+
+    .loading { text-align: center; padding: 60px; color: var(--text-3); }
+
+    /* ── Status badge on card ── */
+    .status-resolved { opacity: 0.5; }
+
+    @media (max-width: 768px) {
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .report-body { grid-template-columns: 1fr; }
+      .header, .tabs, .stats-row, .content { padding-left: 16px; padding-right: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Auth Screen -->
+  <div id="auth-screen">
+    <h1>ReFynd</h1>
+    <p>Admin Moderation Dashboard</p>
+    <input type="email" id="email" placeholder="Admin email" />
+    <input type="password" id="password" placeholder="Password" />
+    <button onclick="signIn()">Sign In</button>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" style="display:none;">
+    <div class="header">
+      <div class="header-left">
+        <div class="logo">ReFynd</div>
+        <div class="badge pending" id="pending-badge">0 pending</div>
+      </div>
+      <div style="font-size:12px;color:var(--text-3);">
+        Signed in as <span id="admin-email" style="color:var(--text-2)"></span>
+        &nbsp;&nbsp;
+        <a href="#" onclick="signOutAdmin()" style="color:var(--red);text-decoration:none;font-weight:600;">Sign out</a>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="pending" onclick="switchTab('pending')">
+        Pending<span class="tab-count" id="tab-pending-count">0</span>
+      </div>
+      <div class="tab" data-tab="resolved" onclick="switchTab('resolved')">
+        Resolved<span class="tab-count" id="tab-resolved-count">0</span>
+      </div>
+      <div class="tab" data-tab="all" onclick="switchTab('all')">
+        All<span class="tab-count" id="tab-all-count">0</span>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Pending</div>
+        <div class="stat-value red" id="stat-pending">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Resolved</div>
+        <div class="stat-value green" id="stat-resolved">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Reports</div>
+        <div class="stat-value" id="stat-total">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Banned Users</div>
+        <div class="stat-value yellow" id="stat-banned">0</div>
+      </div>
+    </div>
+
+    <div class="content" id="reports-container">
+      <div class="loading">Loading reports...</div>
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // Firebase config — refynd2-ed306
+    firebase.initializeApp({
+      apiKey: "AIzaSyBnSM_bMI5Gz3TFD3MRLCNf4jfP7VDu7V4",
+      authDomain: "refynd2-ed306.firebaseapp.com",
+      projectId: "refynd2-ed306",
+      storageBucket: "refynd2-ed306.firebasestorage.app",
+      messagingSenderId: "975283030689",
+      appId: "1:975283030689:web:abc123"
+    });
+
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // Allowed admin emails
+    const ADMIN_EMAILS = ['diagnosedwithotaku@gmail.com'];
+
+    let allReports = [];
+    let currentTab = 'pending';
+
+    // ── Auth ──
+    const ADMIN_PASSWORD = 'roblox123';
+
+    async function signIn() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const errorEl = document.getElementById('auth-error');
+      errorEl.textContent = '';
+
+      if (!ADMIN_EMAILS.includes(email.toLowerCase())) {
+        errorEl.textContent = 'Not an authorized admin email.';
+        return;
+      }
+
+      if (password !== ADMIN_PASSWORD) {
+        errorEl.textContent = 'Wrong password.';
+        return;
+      }
+
+      // Sign in anonymously to access Firestore, store admin state
+      try {
+        await auth.signInAnonymously();
+        sessionStorage.setItem('admin_authed', 'true');
+        sessionStorage.setItem('admin_email', email);
+      } catch (e) {
+        errorEl.textContent = e.message;
+      }
+    }
+
+    function signOutAdmin() {
+      sessionStorage.removeItem('admin_authed');
+      sessionStorage.removeItem('admin_email');
+      auth.signOut();
+      location.reload();
+    }
+
+    auth.onAuthStateChanged(user => {
+      if (user && sessionStorage.getItem('admin_authed') === 'true') {
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        document.getElementById('admin-email').textContent = sessionStorage.getItem('admin_email');
+        loadReports();
+        loadBannedCount();
+      } else {
+        document.getElementById('auth-screen').style.display = 'flex';
+        document.getElementById('dashboard').style.display = 'none';
+      }
+    });
+
+    // ── Load Reports ──
+    async function loadReports() {
+      try {
+        const snap = await db.collection('reports').orderBy('createdAt', 'desc').get();
+        allReports = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        updateStats();
+        renderReports();
+      } catch (e) {
+        console.error('Error loading reports:', e);
+        document.getElementById('reports-container').innerHTML = '<div class="empty-state"><span>⚠️</span>Error loading reports</div>';
+      }
+    }
+
+    async function loadBannedCount() {
+      try {
+        const snap = await db.collection('bannedUsers').get();
+        document.getElementById('stat-banned').textContent = snap.size;
+      } catch (e) {
+        document.getElementById('stat-banned').textContent = '0';
+      }
+    }
+
+    function updateStats() {
+      const pending = allReports.filter(r => r.status !== 'resolved');
+      const resolved = allReports.filter(r => r.status === 'resolved');
+
+      document.getElementById('stat-pending').textContent = pending.length;
+      document.getElementById('stat-resolved').textContent = resolved.length;
+      document.getElementById('stat-total').textContent = allReports.length;
+      document.getElementById('pending-badge').textContent = pending.length + ' pending';
+      document.getElementById('tab-pending-count').textContent = pending.length;
+      document.getElementById('tab-resolved-count').textContent = resolved.length;
+      document.getElementById('tab-all-count').textContent = allReports.length;
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
+      renderReports();
+    }
+
+    function renderReports() {
+      let filtered = allReports;
+      if (currentTab === 'pending') filtered = allReports.filter(r => r.status !== 'resolved');
+      if (currentTab === 'resolved') filtered = allReports.filter(r => r.status === 'resolved');
+
+      if (filtered.length === 0) {
+        document.getElementById('reports-container').innerHTML =
+          `<div class="empty-state"><span>${currentTab === 'pending' ? '✅' : '📋'}</span>${currentTab === 'pending' ? 'No pending reports' : 'No reports found'}</div>`;
+        return;
+      }
+
+      document.getElementById('reports-container').innerHTML = filtered.map(report => {
+        const isResolved = report.status === 'resolved';
+        const type = report.type || (report.videoId ? 'video' : 'profile');
+        const time = report.createdAt ? new Date(report.createdAt).toLocaleString() : 'Unknown';
+        const reason = (report.reason || 'No reason').replace(/_/g, ' ');
+
+        return `
+          <div class="report-card ${isResolved ? 'status-resolved' : ''}">
+            <div class="report-header">
+              <div class="report-meta">
+                <span class="report-type ${type}">${type}</span>
+                <span class="report-reason">${reason}</span>
+              </div>
+              <div style="text-align:right;">
+                ${isResolved
+                  ? '<span class="badge resolved">RESOLVED</span>'
+                  : '<span class="badge">PENDING</span>'
+                }
+                <div class="report-time" style="margin-top:4px;">${time}</div>
+              </div>
+            </div>
+
+            <div class="report-body">
+              ${report.videoId ? `
+                <div class="report-field">
+                  <div class="report-field-label">Video ID</div>
+                  <div class="report-field-value">
+                    <a href="https://console.firebase.google.com/project/refynd2-ed306/firestore/databases/-default-/data/videos/${report.videoId}" target="_blank">${report.videoId}</a>
+                  </div>
+                </div>
+              ` : ''}
+              ${report.reportedUserId ? `
+                <div class="report-field">
+                  <div class="report-field-label">Reported User</div>
+                  <div class="report-field-value">
+                    ${report.reportedName || report.reportedUserId}
+                    <br><span style="color:var(--text-3);font-family:'DM Mono',monospace;font-size:10px;">${report.reportedUserId}</span>
+                  </div>
+                </div>
+              ` : ''}
+              <div class="report-field">
+                <div class="report-field-label">Reported By</div>
+                <div class="report-field-value" style="font-family:'DM Mono',monospace;font-size:11px;">${report.reportedBy}</div>
+              </div>
+              ${report.resolvedAction ? `
+                <div class="report-field">
+                  <div class="report-field-label">Action Taken</div>
+                  <div class="report-field-value" style="text-transform:capitalize;">${report.resolvedAction.replace(/_/g, ' ')}</div>
+                </div>
+              ` : ''}
+            </div>
+
+            ${!isResolved ? `
+              <div class="report-actions">
+                ${report.videoId ? `<button class="action-btn danger" onclick="removeContent('${report.id}', '${report.videoId}')">🗑️ Remove Video</button>` : ''}
+                ${report.reportedUserId ? `<button class="action-btn danger" onclick="banUser('${report.id}', '${report.reportedUserId}', '${(report.reportedName || '').replace(/'/g, "\\'")}')">🚫 Ban User</button>` : ''}
+                <button class="action-btn" onclick="warnUser('${report.id}', '${report.reportedUserId || report.videoId}')">⚠️ Warn</button>
+                <button class="action-btn success" onclick="dismissReport('${report.id}')">✓ Dismiss</button>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ── Actions ──
+    async function removeContent(reportId, videoId) {
+      if (!confirm('Delete this video permanently?')) return;
+      try {
+        await db.collection('videos').doc(videoId).delete();
+        await db.collection('reports').doc(reportId).update({
+          status: 'resolved',
+          resolvedAction: 'content_removed',
+          resolvedAt: new Date().toISOString(),
+          resolvedBy: auth.currentUser.email,
+        });
+        await loadReports();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    async function banUser(reportId, userId, userName) {
+      if (!confirm(`Ban ${userName || userId}? This will:\n- Remove all their videos\n- Disable their account`)) return;
+      try {
+        // Add to banned collection
+        await db.collection('bannedUsers').doc(userId).set({
+          userId,
+          userName: userName || '',
+          bannedAt: new Date().toISOString(),
+          bannedBy: auth.currentUser.email,
+          reason: allReports.find(r => r.id === reportId)?.reason || '',
+        });
+
+        // Delete all their videos
+        const videoSnap = await db.collection('videos').where('userId', '==', userId).get();
+        const batch = db.batch();
+        videoSnap.docs.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+
+        // Mark report resolved
+        await db.collection('reports').doc(reportId).update({
+          status: 'resolved',
+          resolvedAction: 'user_banned',
+          resolvedAt: new Date().toISOString(),
+          resolvedBy: auth.currentUser.email,
+        });
+
+        await loadReports();
+        await loadBannedCount();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    async function warnUser(reportId, targetId) {
+      const message = prompt('Warning message to send:');
+      if (!message) return;
+      try {
+        // Create a warning record
+        await db.collection('warnings').add({
+          targetId,
+          message,
+          reportId,
+          issuedAt: new Date().toISOString(),
+          issuedBy: auth.currentUser.email,
+        });
+
+        await db.collection('reports').doc(reportId).update({
+          status: 'resolved',
+          resolvedAction: 'warning_issued',
+          resolvedAt: new Date().toISOString(),
+          resolvedBy: auth.currentUser.email,
+        });
+
+        await loadReports();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    async function dismissReport(reportId) {
+      if (!confirm('Dismiss this report? No action will be taken.')) return;
+      try {
+        await db.collection('reports').doc(reportId).update({
+          status: 'resolved',
+          resolvedAction: 'dismissed',
+          resolvedAt: new Date().toISOString(),
+          resolvedBy: auth.currentUser.email,
+        });
+        await loadReports();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+  </script>
+</body>
+</html>

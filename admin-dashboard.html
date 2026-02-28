@@ -195,11 +195,31 @@ const API='https://europe-west2-refynd2-ed306.cloudfunctions.net';
 let allVideos=[],allReports=[],currentView='flagged',totpVerified=false,cachedTOTP=null;
 
 async function getToken(){return authInstance.currentUser.getIdToken();}
-async function callAPI(ep,body){
-  const h={'Content-Type':'application/json','Authorization':'Bearer '+(await getToken())};
-  if(cachedTOTP) h['x-totp-code']=cachedTOTP;
-  const r=await fetch(`${API}/${ep}`,{method:'POST',headers:h,body:JSON.stringify(body)});
-  const d=await r.json(); if(!r.ok) throw new Error(d.error||'Error'); return d;
+let lastTOTPVerified = 0;
+const TOTP_SESSION_MS = 60 * 60 * 1000; // 1 hour
+
+function isTOTPSessionValid() {
+  return (Date.now() - lastTOTPVerified) < TOTP_SESSION_MS;
+}
+
+async function recheckTOTP() {
+  const code = prompt('Your 2FA session has expired (1 hour). Enter your current authenticator code:');
+  if (!code || code.length !== 6) throw new Error('2FA required');
+  await callAPIRaw('verifyTOTP', { code });
+  cachedTOTP = code;
+  lastTOTPVerified = Date.now();
+}
+
+async function callAPI(ep, body) {
+  // Re-verify TOTP if session expired
+  if (!isTOTPSessionValid()) {
+    await recheckTOTP();
+  }
+  const h = {'Content-Type':'application/json', 'Authorization':'Bearer '+(await getToken())};
+  const r = await fetch(`${API}/${ep}`, {method:'POST', headers:h, body:JSON.stringify(body)});
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || 'Error');
+  return d;
 }
 async function callAPIRaw(ep,body){
   const h={'Content-Type':'application/json','Authorization':'Bearer '+(await getToken())};
@@ -223,7 +243,7 @@ async function verifyTOTP(){
   const code=document.getElementById('totp-code').value.trim(),err=document.getElementById('totp-error'),btn=document.getElementById('totp-btn');
   err.textContent='';if(code.length!==6){err.textContent='Enter a 6-digit code';return;}
   btn.disabled=true;btn.textContent='Verifying...';
-  try{await callAPIRaw('verifyTOTP',{code});cachedTOTP=code;totpVerified=true;document.getElementById('admin-email').textContent=authInstance.currentUser.email;showScreen('dashboard');loadData();}
+  try{await callAPIRaw('verifyTOTP',{code});cachedTOTP=code;totpVerified=true;lastTOTPVerified=Date.now();document.getElementById('admin-email').textContent=authInstance.currentUser.email;showScreen('dashboard');loadData();}
   catch(e){err.textContent=e.message==='Invalid code'?'Wrong code — check your authenticator app':e.message;document.getElementById('totp-code').value='';document.getElementById('totp-code').focus();}
   btn.disabled=false;btn.textContent='Verify';
 }

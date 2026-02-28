@@ -198,22 +198,15 @@ async function getToken(){return authInstance.currentUser.getIdToken();}
 let lastTOTPVerified = 0;
 const TOTP_SESSION_MS = 60 * 60 * 1000; // 1 hour
 
-function isTOTPSessionValid() {
-  return (Date.now() - lastTOTPVerified) < TOTP_SESSION_MS;
-}
-
-async function recheckTOTP() {
-  const code = prompt('Your 2FA session has expired (1 hour). Enter your current authenticator code:');
-  if (!code || code.length !== 6) throw new Error('2FA required');
-  await callAPIRaw('verifyTOTP', { code });
-  cachedTOTP = code;
-  lastTOTPVerified = Date.now();
-}
-
 async function callAPI(ep, body) {
-  // Re-verify TOTP if session expired
-  if (!isTOTPSessionValid()) {
-    await recheckTOTP();
+  // Re-verify TOTP if session expired (but not if we just logged in)
+  if (totpVerified && (Date.now() - lastTOTPVerified) > TOTP_SESSION_MS) {
+    const code = prompt('Session expired (1 hour). Enter your current authenticator code:');
+    if (!code || code.length !== 6) { showToast('2FA code required', 'error'); throw new Error('Cancelled'); }
+    try {
+      await callAPIRaw('verifyTOTP', { code });
+      lastTOTPVerified = Date.now();
+    } catch (e) { showToast('Invalid 2FA code', 'error'); throw e; }
   }
   const h = {'Content-Type':'application/json', 'Authorization':'Bearer '+(await getToken())};
   const r = await fetch(`${API}/${ep}`, {method:'POST', headers:h, body:JSON.stringify(body)});
